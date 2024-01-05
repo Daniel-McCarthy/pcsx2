@@ -336,6 +336,9 @@
     <ClCompile Include="$(IntDir)moc_SetupWizardDialog.cpp">
       <Filter>moc</Filter>
     </ClCompile>
+    <ClCompile Include="Settings\DebuggerSettingsFile.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="..\pcsx2\windows\PCSX2.manifest">
@@ -353,6 +356,9 @@
       <Filter>Settings</Filter>
     </ClInclude>
     <ClInclude Include="Settings\MemoryCardConvertWorker.h">
+      <Filter>Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Settings\DebuggerSettingsFile.h">
       <Filter>Settings</Filter>
     </ClInclude>
   </ItemGroup>

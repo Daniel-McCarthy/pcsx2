@@ -87,6 +87,7 @@
     <Manifest Include="..\pcsx2\windows\PCSX2.manifest" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Settings\DebuggerSettingsFile.cpp" />
     <ClCompile Include="ColorPickerButton.cpp" />
     <ClCompile Include="EarlyHardwareCheck.cpp" />
     <ClCompile Include="QtProgressCallback.cpp" />
@@ -171,6 +172,7 @@
     <QtMoc Include="Settings\DEV9UiCommon.h" />
     <QtMoc Include="QtProgressCallback.h" />
     <QtMoc Include="ColorPickerButton.h" />
+    <ClInclude Include="Settings\DebuggerSettingsFile.h" />
     <ClInclude Include="Settings\ControllerSettingWidgetBinder.h" />
     <QtMoc Include="Settings\FolderSettingsWidget.h" />
     <QtMoc Include="Settings\DebugSettingsWidget.h" />

@@ -150,6 +150,7 @@ namespace EmuFolders
 	std::string AppRoot;
 	std::string DataRoot;
 	std::string Settings;
+	std::string DebuggerSettings;
 	std::string Bios;
 	std::string Snapshots;
 	std::string Savestates;
@@ -2005,6 +2006,7 @@ void EmuFolders::LoadConfig(SettingsInterface& si)
 	Patches = LoadPathFromSettings(si, DataRoot, "Patches", "patches");
 	Covers = LoadPathFromSettings(si, DataRoot, "Covers", "covers");
 	GameSettings = LoadPathFromSettings(si, DataRoot, "GameSettings", "gamesettings");
+	DebuggerSettings = LoadPathFromSettings(si, DataRoot, "DebuggerSettings", "debuggersettings");
 	Cache = LoadPathFromSettings(si, DataRoot, "Cache", "cache");
 	Textures = LoadPathFromSettings(si, DataRoot, "Textures", "textures");
 	InputProfiles = LoadPathFromSettings(si, DataRoot, "InputProfiles", "inputprofiles");
@@ -2019,6 +2021,7 @@ void EmuFolders::LoadConfig(SettingsInterface& si)
 	Console.WriteLn("Patches Directory: %s", Patches.c_str());
 	Console.WriteLn("Covers Directory: %s", Covers.c_str());
 	Console.WriteLn("Game Settings Directory: %s", GameSettings.c_str());
+	Console.WriteLn("Debugger Settings Directory: %s", DebuggerSettings.c_str());
 	Console.WriteLn("Cache Directory: %s", Cache.c_str());
 	Console.WriteLn("Textures Directory: %s", Textures.c_str());
 	Console.WriteLn("Input Profile Directory: %s", InputProfiles.c_str());
@@ -2029,6 +2032,7 @@ bool EmuFolders::EnsureFoldersExist()
 {
 	bool result = FileSystem::CreateDirectoryPath(Bios.c_str(), false);
 	result = FileSystem::CreateDirectoryPath(Settings.c_str(), false) && result;
+	result = FileSystem::CreateDirectoryPath(DebuggerSettings.c_str(), false) && result;
 	result = FileSystem::CreateDirectoryPath(Snapshots.c_str(), false) && result;
 	result = FileSystem::CreateDirectoryPath(Savestates.c_str(), false) && result;
 	result = FileSystem::CreateDirectoryPath(MemoryCards.c_str(), false) && result;
