@@ -8,6 +8,7 @@
 #include "Models/BreakpointModel.h"
 #include "Models/ThreadModel.h"
 #include "Models/SavedAddressesModel.h"
+#include "Settings/DebuggerSettingsManager.h"
 
 #include "DebugTools/DebugInterface.h"
 #include "DebugTools/Breakpoints.h"
@@ -45,6 +46,11 @@ CpuWidget::CpuWidget(QWidget* parent, DebugInterface& cpu)
 	m_ui.setupUi(this);
 
 	connect(g_emu_thread, &EmuThread::onVMPaused, this, &CpuWidget::onVMPaused);
+	connect(g_emu_thread, &EmuThread::onGameChanged, [this]() {
+		DebuggerSettingsManager::loadGameSettings(&m_bpModel);
+		DebuggerSettingsManager::loadGameSettings(&m_savedAddressesModel);
+	});
+
 
 	connect(m_ui.registerWidget, &RegisterWidget::gotoInDisasm, m_ui.disassemblyWidget, &DisassemblyWidget::gotoAddress);
 	connect(m_ui.memoryviewWidget, &MemoryViewWidget::gotoInDisasm, m_ui.disassemblyWidget, &DisassemblyWidget::gotoAddress);
@@ -146,6 +152,9 @@ CpuWidget::CpuWidget(QWidget* parent, DebugInterface& cpu)
 	connect(m_ui.savedAddressesList->model(), &QAbstractItemModel::dataChanged,	[savedAddressesTableView](const QModelIndex& topLeft) {
 		savedAddressesTableView->resizeColumnToContents(topLeft.column());
 	});
+
+	DebuggerSettingsManager::loadGameSettings(&m_bpModel);
+	DebuggerSettingsManager::loadGameSettings(&m_savedAddressesModel);
 }
 
 CpuWidget::~CpuWidget() = default;
@@ -342,6 +351,10 @@ void CpuWidget::onBPListContextMenu(QPoint pos)
 	connect(actionImport, &QAction::triggered, this, &CpuWidget::contextBPListPasteCSV);
 	contextMenu->addAction(actionImport);
 
+	QAction* actionSave = new QAction(tr("Save"), m_ui.breakpointList);
+	connect(actionSave, &QAction::triggered, this, &CpuWidget::saveBreakpointsToDebuggerSettings);
+	contextMenu->addAction(actionSave);
+
 	contextMenu->popup(m_ui.breakpointList->viewport()->mapToGlobal(pos));
 }
 
@@ -415,98 +428,7 @@ void CpuWidget::contextBPListPasteCSV()
 			QString matchedValue = match.captured(0);
 			fields << matchedValue.mid(1, matchedValue.length() - 2);
 		}
-
-		if (fields.size() != BreakpointModel::BreakpointColumns::COLUMN_COUNT)
-		{
-			Console.WriteLn("Debugger CSV Import: Invalid number of columns, skipping");
-			continue;
-		}
-
-		bool ok;
-		const int type = fields[BreakpointModel::BreakpointColumns::TYPE].toUInt(&ok);
-		if (!ok)
-		{
-			Console.WriteLn("Debugger CSV Import: Failed to parse type '%s', skipping", fields[BreakpointModel::BreakpointColumns::TYPE].toUtf8().constData());
-			continue;
-		}
-
-		// This is how we differentiate between breakpoints and memchecks
-		if (type == MEMCHECK_INVALID)
-		{
-			BreakPoint bp;
-
-			// Address
-			bp.addr = fields[BreakpointModel::BreakpointColumns::OFFSET].toUInt(&ok, 16);
-			if (!ok)
-			{
-				Console.WriteLn("Debugger CSV Import: Failed to parse address '%s', skipping", fields[BreakpointModel::BreakpointColumns::OFFSET].toUtf8().constData());
-				continue;
-			}
-
-			// Condition
-			if (!fields[BreakpointModel::BreakpointColumns::CONDITION].isEmpty())
-			{
-				PostfixExpression expr;
-				bp.hasCond = true;
-				bp.cond.debug = &m_cpu;
-
-				if (!m_cpu.initExpression(fields[BreakpointModel::BreakpointColumns::CONDITION].toUtf8().constData(), expr))
-				{
-					Console.WriteLn("Debugger CSV Import: Failed to parse cond '%s', skipping", fields[BreakpointModel::BreakpointColumns::CONDITION].toUtf8().constData());
-					continue;
-				}
-				bp.cond.expression = expr;
-				strncpy(&bp.cond.expressionString[0], fields[BreakpointModel::BreakpointColumns::CONDITION].toUtf8().constData(), sizeof(bp.cond.expressionString));
-			}
-
-			// Enabled
-			bp.enabled = fields[BreakpointModel::BreakpointColumns::ENABLED].toUInt(&ok);
-			if (!ok)
-			{
-				Console.WriteLn("Debugger CSV Import: Failed to parse enable flag '%s', skipping", fields[BreakpointModel::BreakpointColumns::ENABLED].toUtf8().constData());
-				continue;
-			}
-
-			m_bpModel.insertBreakpointRows(0, 1, {bp});
-		}
-		else
-		{
-			MemCheck mc;
-			// Mode
-			if (type >= MEMCHECK_INVALID)
-			{
-				Console.WriteLn("Debugger CSV Import: Failed to parse cond type '%s', skipping", fields [BreakpointModel::BreakpointColumns::TYPE].toUtf8().constData());
-				continue;
-			}
-			mc.cond = static_cast<MemCheckCondition>(type);
-
-			// Address
-			mc.start = fields[BreakpointModel::BreakpointColumns::OFFSET].toUInt(&ok, 16);
-			if (!ok)
-			{
-				Console.WriteLn("Debugger CSV Import: Failed to parse address '%s', skipping", fields[BreakpointModel::BreakpointColumns::OFFSET].toUtf8().constData());
-				continue;
-			}
-
-			// Size
-			mc.end = fields[BreakpointModel::BreakpointColumns::SIZE_LABEL].toUInt(&ok) + mc.start;
-			if (!ok)
-			{
-				Console.WriteLn("Debugger CSV Import: Failed to parse length '%s', skipping", fields[BreakpointModel::BreakpointColumns::SIZE_LABEL].toUtf8().constData());
-				continue;
-			}
-
-			// Result
-			const int result = fields [BreakpointModel::BreakpointColumns::ENABLED].toUInt(&ok);
-			if (!ok)
-			{
-				Console.WriteLn("Debugger CSV Import: Failed to parse result flag '%s', skipping", fields [BreakpointModel::BreakpointColumns::ENABLED].toUtf8().constData());
-				continue;
-			}
-			mc.result = static_cast<MemCheckResult>(result);
-
-			m_bpModel.insertBreakpointRows(0, 1, {mc});
-		}
+		m_bpModel.loadBreakpointFromFieldList(fields);
 	}
 }
 
@@ -561,7 +483,9 @@ void CpuWidget::onSavedAddressesListContextMenu(QPoint pos)
 	connect(actionImportCSV, &QAction::triggered, this, &CpuWidget::contextSavedAddressesListPasteCSV);
 	contextMenu->addAction(actionImportCSV);
 
-	contextMenu->popup(m_ui.savedAddressesList->viewport()->mapToGlobal(pos));
+	QAction* actionSave = new QAction(tr("Save"), m_ui.savedAddressesList);
+	connect(actionSave, &QAction::triggered, this, &CpuWidget::saveSavedAddressesToDebuggerSettings);
+	contextMenu->addAction(actionSave);
 
 	if (isIndexValid)
 	{
@@ -571,6 +495,8 @@ void CpuWidget::onSavedAddressesListContextMenu(QPoint pos)
 		});
 		contextMenu->addAction(deleteAction);
 	}
+
+	contextMenu->popup(m_ui.savedAddressesList->viewport()->mapToGlobal(pos));
 }
 
 void CpuWidget::contextSavedAddressesListPasteCSV()
@@ -594,24 +520,7 @@ void CpuWidget::contextSavedAddressesListPasteCSV()
 			fields << matchedValue.mid(1, matchedValue.length() - 2);
 		}
 
-		if (fields.size() != SavedAddressesModel::HeaderColumns::COLUMN_COUNT)
-		{
-			Console.WriteLn("Debugger CSV Import: Invalid number of columns, skipping");
-			continue;
-		}
-
-		bool ok;
-		const u32 address = fields[SavedAddressesModel::HeaderColumns::ADDRESS].toUInt(&ok, 16);
-		if (!ok)
-		{
-			Console.WriteLn("Debugger CSV Import: Failed to parse address '%s', skipping", fields[SavedAddressesModel::HeaderColumns::ADDRESS].toUtf8().constData());
-			continue;
-		}
-
-		const QString label = fields[SavedAddressesModel::HeaderColumns::LABEL];
-		const QString description = fields[SavedAddressesModel::HeaderColumns::DESCRIPTION];
-		const SavedAddressesModel::SavedAddress importedAddress = {address, label, description};
-		m_savedAddressesModel.addRow(importedAddress);
+		m_savedAddressesModel.loadSavedAddressFromFieldList(fields);
 	}
 }
 
@@ -1392,3 +1301,11 @@ void CpuWidget::loadSearchResults()
 	}
 }
 
+void CpuWidget::saveBreakpointsToDebuggerSettings() {
+	DebuggerSettingsManager::saveGameSettings(&m_bpModel);
+}
+
+void CpuWidget::saveSavedAddressesToDebuggerSettings()
+{
+	DebuggerSettingsManager::saveGameSettings(&m_savedAddressesModel);
+}

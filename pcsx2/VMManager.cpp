@@ -730,6 +730,19 @@ std::string VMManager::GetInputProfilePath(const std::string_view& name)
 	return Path::Combine(EmuFolders::InputProfiles, fmt::format("{}.ini", name));
 }
 
+std::string VMManager::GetDebuggerSettingsFilePath(const std::string_view& game_serial, u32 game_crc)
+{
+	if (game_serial.empty() || game_crc == 0)
+		return "";
+	auto lock = Host::GetSettingsLock();
+	return Path::Combine(EmuFolders::DebuggerSettings, fmt::format("{}_{:08X}.json", game_serial, game_crc));
+}
+
+std::string VMManager::GetDebuggerSettingsFilePathForCurrentGame()
+{
+	return GetDebuggerSettingsFilePath(s_disc_serial, s_current_crc);
+}
+
 void VMManager::Internal::UpdateEmuFolders()
 {
 	const std::string old_cheats_directory(EmuFolders::Cheats);

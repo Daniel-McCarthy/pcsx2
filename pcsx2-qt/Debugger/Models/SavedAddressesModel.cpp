@@ -4,6 +4,8 @@
 #include "PrecompiledHeader.h"
 #include "SavedAddressesModel.h"
 
+#include "common/Console.h"
+
 SavedAddressesModel::SavedAddressesModel(DebugInterface& cpu, QObject* parent)
 	: QAbstractTableModel(parent)
 	, m_cpu(cpu)
@@ -149,4 +151,26 @@ int SavedAddressesModel::rowCount(const QModelIndex&) const
 int SavedAddressesModel::columnCount(const QModelIndex&) const
 {
 	return HeaderColumns::COLUMN_COUNT;
+}
+
+void SavedAddressesModel::loadSavedAddressFromFieldList(QStringList fields)
+{
+	if (fields.size() != SavedAddressesModel::HeaderColumns::COLUMN_COUNT)
+	{
+		Console.WriteLn("Debugger Saved Addresses Model: Invalid number of columns, skipping");
+		return;
+	}
+
+	bool ok;
+	const u32 address = fields[SavedAddressesModel::HeaderColumns::ADDRESS].toUInt(&ok, 16);
+	if (!ok)
+	{
+		Console.WriteLn("Debugger Saved Addresses Model: Failed to parse address '%s', skipping", fields[SavedAddressesModel::HeaderColumns::ADDRESS].toUtf8().constData());
+		return;
+	}
+
+	const QString label = fields[SavedAddressesModel::HeaderColumns::LABEL];
+	const QString description = fields[SavedAddressesModel::HeaderColumns::DESCRIPTION];
+	const SavedAddressesModel::SavedAddress importedAddress = {address, label, description};
+	addRow(importedAddress);
 }

@@ -45,6 +45,7 @@ public:
 	void addRow(SavedAddress addresstoSave);
 	bool removeRows(int row, int count, const QModelIndex& parent = QModelIndex()) override;
 	bool setData(const QModelIndex& index, const QVariant& value, int role) override;
+	void loadSavedAddressFromFieldList(QStringList fields);
 
 private:
 	DebugInterface& m_cpu;

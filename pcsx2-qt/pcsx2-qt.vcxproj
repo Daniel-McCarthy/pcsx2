@@ -96,6 +96,7 @@
     <ClCompile Include="Settings\GameCheatSettingsWidget.cpp" />
     <ClCompile Include="Settings\GamePatchSettingsWidget.cpp" />
     <ClCompile Include="Settings\MemoryCardConvertWorker.cpp" />
+    <ClCompile Include="Settings\DebuggerSettingsManager.cpp" />
     <ClCompile Include="SetupWizardDialog.cpp" />
     <ClCompile Include="Themes.cpp" />
     <ClCompile Include="Tools\InputRecording\InputRecordingViewer.cpp" />
@@ -174,6 +175,7 @@
     <QtMoc Include="QtProgressCallback.h" />
     <QtMoc Include="ColorPickerButton.h" />
     <QtMoc Include="LogWindow.h" />
+    <ClInclude Include="Settings\DebuggerSettingsManager.h" />
     <ClInclude Include="Settings\ControllerSettingWidgetBinder.h" />
     <QtMoc Include="Settings\FolderSettingsWidget.h" />
     <QtMoc Include="Settings\DebugSettingsWidget.h" />
