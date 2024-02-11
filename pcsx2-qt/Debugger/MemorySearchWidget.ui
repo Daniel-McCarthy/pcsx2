@@ -133,23 +133,53 @@
          <string>Greater Than</string>
         </property>
        </item>
-       <item>
-        <property name="text">
-         <string>Greater Than Or Equal</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Less Than</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Less Than Or Equal</string>
-        </property>
-       </item>
-      </widget>
-     </item>
+      <item>
+       <property name="text">
+        <string>Greater Than Or Equal</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Less Than</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Less Than Or Equal</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Increased</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Increased By</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Decreased</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Decreased By</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Changed</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Not Changed</string>
+       </property>
+      </item>
+     </widget>
+    </item>
      <item row="1" column="0">
       <widget class="QLabel" name="comparisonLabel">
        <property name="text">

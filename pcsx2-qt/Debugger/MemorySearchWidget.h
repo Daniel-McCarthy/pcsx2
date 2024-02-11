@@ -9,6 +9,7 @@
 
 #include <QtWidgets/QWidget>
 #include <QtCore/QTimer>
+#include <QtCore/QMap>
 
 class MemorySearchWidget final : public QWidget
 {
@@ -39,12 +40,40 @@ public:
 		GreaterThan,
 		GreaterThanOrEqual,
 		LessThan,
-		LessThanOrEqual
+		LessThanOrEqual,
+		Increased,
+		IncreasedBy,
+		Decreased,
+		DecreasedBy,
+		Changed,
+		NotChanged
+	};
+
+	class SearchResult
+	{
+	private:
+		u32 address;
+		QVariant value;
+		SearchType type;
+
+	public:
+		SearchResult() {}
+		SearchResult(u32 address, const QVariant& value, SearchType type)
+			: address(address), value(value), type(type)
+		{
+		}
+		bool isIntegerValue() const { return !isArrayValue(); }
+		bool isArrayValue() const { return type == SearchType::ArrayType || type == SearchType::StringType; }
+		u32 getAddress() const { return address; }
+		SearchType getType() const { return type; }
+		u32 getIntegerValue() const { return isIntegerValue() ? value.toUInt() : 0; }
+		QByteArray getArrayValue() const { return isArrayValue() ? value.toByteArray() : QByteArray(); }
 	};
 
 public slots:
 	void onSearchButtonClicked();
 	void onSearchResultsListScroll(u32 value);
+	void onSearchTypeChanged(int newIndex);
 	void loadSearchResults();
 	void contextSearchResultGoToDisassembly();
 	void contextRemoveSearchResult();
@@ -59,6 +88,7 @@ signals:
 
 private:
     std::vector<u32> m_searchResults;
+	QMap<u32, SearchResult> m_searchResultsMap;
 
     Ui::MemorySearchWidget m_ui;
 

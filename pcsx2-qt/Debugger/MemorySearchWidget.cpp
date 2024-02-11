@@ -19,6 +19,7 @@
 
 using SearchComparison = MemorySearchWidget::SearchComparison;
 using SearchType = MemorySearchWidget::SearchType;
+using SearchResults = QMap<u32, CpuWidget::SearchResult>;
 
 using namespace QtUtils;
 
@@ -29,21 +30,22 @@ MemorySearchWidget::MemorySearchWidget(QWidget* parent)
 	this->repaint();
 
 	m_ui.listSearchResults->setContextMenuPolicy(Qt::CustomContextMenu);
-	connect(m_ui.btnSearch, &QPushButton::clicked, this, &MemorySearchWidget::onSearchButtonClicked);
-	connect(m_ui.btnFilterSearch, &QPushButton::clicked, this, &MemorySearchWidget::onSearchButtonClicked);
-	connect(m_ui.listSearchResults, &QListWidget::itemDoubleClicked, [this](QListWidgetItem* item) // move back to cpu widget
+	connect(m_ui.btnSearch, &QPushButton::clicked, this, &CpuWidget::onSearchButtonClicked);
+	connect(m_ui.btnFilterSearch, &QPushButton::clicked, this, &CpuWidget::onSearchButtonClicked);
+	connect(m_ui.listSearchResults, &QListWidget::itemDoubleClicked, [this](QListWidgetItem* item)
 	{
-		emit switchToMemoryViewTab();
-		emit goToAddressInMemoryView(item->text().toUInt(nullptr, 16));
+		m_ui.tabWidget->setCurrentWidget(m_ui.tab_memory);
+		m_ui.memoryviewWidget->gotoAddress(item->text().toUInt(nullptr, 16));
 	});
-	connect(m_ui.listSearchResults->verticalScrollBar(), &QScrollBar::valueChanged, this, &MemorySearchWidget::onSearchResultsListScroll);
-	connect(m_ui.listSearchResults, &QListView::customContextMenuRequested, this, &MemorySearchWidget::onListSearchResultsContextMenu);
+	connect(m_ui.listSearchResults->verticalScrollBar(), &QScrollBar::valueChanged, this, &CpuWidget::onSearchResultsListScroll);
+	connect(m_ui.listSearchResults, &QListView::customContextMenuRequested, this, &CpuWidget::onListSearchResultsContextMenu);
 	connect(m_ui.cmbSearchType, &QComboBox::currentIndexChanged, [this](int i) {
 		if (i < 4)
 			m_ui.chkSearchHex->setEnabled(true);
 		else
 			m_ui.chkSearchHex->setEnabled(false);
 	});
+	connect(m_ui.cmbSearchType, &QComboBox::currentIndexChanged, this, &CpuWidget::onSearchTypeChanged);
 
 	// Ensures we don't retrigger the load results function unintentionally
 	m_resultsLoadTimer.setInterval(100);
@@ -74,10 +76,15 @@ void MemorySearchWidget::contextRemoveSearchResult()
 
 	const int selectedResultIndex = m_ui.listSearchResults->row(m_ui.listSearchResults->selectedItems().first());
 	const auto* rowToRemove = m_ui.listSearchResults->takeItem(selectedResultIndex);
-	if (m_searchResults.size() > static_cast<size_t>(selectedResultIndex) && m_searchResults.at(selectedResultIndex) == rowToRemove->data(Qt::UserRole).toUInt())
+	u32 address = rowToRemove->data(Qt::UserRole).toUInt();
+	m_searchResultsMap.remove(address);
+	// (TODO) remove from 
+	const QList<u32> addresses = m_searchResultsMap.keys();
+	if (addresses.size() > static_cast<size_t>(selectedResultIndex) && addresses.at(selectedResultIndex) == rowToRemove->data(Qt::UserRole).toUInt())
 	{
-		m_searchResults.erase(m_searchResults.begin() + selectedResultIndex);
+		m_searchResultsMap.remove(addresses.at(selectedResultIndex));
 	}
+	// to here
 	delete rowToRemove;
 }
 
@@ -218,38 +225,108 @@ static bool memoryValueComparator(SearchComparison searchComparison, T searchVal
 	}
 }
 
+// Handles the comparison of the read value against either the search value, or if existing searchResults are available, the value at the same address in the searchResultsMap
 template <typename T>
-std::vector<u32> searchWorker(DebugInterface* cpu, std::vector<u32> searchAddresses, SearchComparison searchComparison, u32 start, u32 end, T searchValue)
+bool handleSearchComparison(SearchComparison searchComparison, u32 searchAddress, SearchResults searchResults, T searchValue, T readValue)
+{
+	const bool isNotOperator = searchComparison == SearchComparison::NotEquals || searchComparison == SearchComparison::NotChanged;
+	switch (searchComparison) 
+	{
+		case SearchComparison::Equals:
+		case SearchComparison::NotEquals:
+		case SearchComparison::GreaterThan:
+		case SearchComparison::GreaterThanOrEqual:
+		case SearchComparison::LessThan:
+		case SearchComparison::LessThanOrEqual:
+		{
+			return memoryValueComparator(searchComparison, searchValue, readValue);
+			break;
+		}
+		case SearchComparison::Increased:
+		{
+			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			return memoryValueComparator(SearchComparison::GreaterThan, priorValue, readValue);
+			break;
+		}
+		case SearchComparison::IncreasedBy:
+		{
+
+			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T expectedIncrease = searchValue + priorValue;
+			return memoryValueComparator(SearchComparison::Equals, readValue, expectedIncrease);
+			break;
+		}
+		case SearchComparison::Decreased:
+		{
+			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			return memoryValueComparator(SearchComparison::LessThan, priorValue, readValue);
+			break;
+		}
+		case SearchComparison::DecreasedBy:
+		{
+			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T expectedDecrease = priorValue - searchValue;
+			return memoryValueComparator(SearchComparison::Equals, readValue, expectedDecrease);
+			break;
+		}
+		case SearchComparison::Changed:
+		case SearchComparison::NotChanged:
+		{
+			CpuWidget::SearchResult test = searchResults.value(0x80000);
+			T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			return memoryValueComparator(isNotOperator ? SearchComparison::Equals : SearchComparison::NotEquals, priorValue, readValue);
+			break;
+		}
+		default:
+			Console.Error("Debugger: Unknown type when doing memory search!");
+			return false;
+	}
+}
+
+template <typename T>
+SearchResults searchWorker(DebugInterface* cpu, SearchResults searchResults, SearchType searchType, SearchComparison searchComparison, u32 start, u32 end, T searchValue)
 {
 	std::vector<u32> hitAddresses;
-	const bool isSearchingRange = searchAddresses.size() <= 0;
+	SearchResults newSearchResults;
+	const bool isSearchingRange = searchResults.size() <= 0;
+	//const bool isFilterSearch = searchResults.size() > 0;
+	// We need to turn this logic into a lambda that is called from each loop
 	if (isSearchingRange)
 	{
 		for (u32 addr = start; addr < end; addr += sizeof(T))
 		{
 			if (!cpu->isValidAddress(addr))
 				continue;
+			
 			T readValue = readValueAtAddress<T>(cpu, addr);
-			if (memoryValueComparator(searchComparison, searchValue, readValue))
+			if (handleSearchComparison(searchComparison, addr, searchResults, searchValue, readValue))
 			{
 				hitAddresses.push_back(addr);
+				//newSearchResults.insert(addr, CpuWidget::SearchResult{addr, readValue, searchType});
+				newSearchResults.insert(addr, CpuWidget::SearchResult(addr, QVariant(readValue), searchType));
 			}
 		}
 	}
 	else
 	{
-		for (const u32 addr : searchAddresses)
+		for (const CpuWidget::SearchResult searchResult : searchResults)
 		{
+			const u32 addr = searchResult.getAddress();
 			if (!cpu->isValidAddress(addr))
 				continue;
 			T readValue = readValueAtAddress<T>(cpu, addr);
-			if (memoryValueComparator(searchComparison, searchValue, readValue))
+			if (handleSearchComparison(searchComparison, addr, searchResults, searchValue, readValue))
 			{
 				hitAddresses.push_back(addr);
+				//newSearchResults.insert(addr, CpuWidget::SearchResult{addr, readValue, searchType});
+				newSearchResults.insert(addr, CpuWidget::SearchResult(addr, QVariant(readValue), searchType));
 			}
 		}
 	}
-	return hitAddresses;
+	//return hitAddresses;
+	CpuWidget::SearchResult test = newSearchResults.isEmpty() ? CpuWidget::SearchResult() : newSearchResults.first();
+	u32 testVal = test.getIntegerValue();
+	return newSearchResults;
 }
 
 static bool compareByteArrayAtAddress(DebugInterface* cpu, SearchComparison searchComparison, u32 addr, QByteArray value)
@@ -282,55 +359,95 @@ static bool compareByteArrayAtAddress(DebugInterface* cpu, SearchComparison sear
 	return !isNotOperator;
 }
 
-static std::vector<u32> searchWorkerByteArray(DebugInterface* cpu, SearchComparison searchComparison, std::vector<u32> searchAddresses, u32 start, u32 end, QByteArray value)
+bool handleArraySearchComparison(DebugInterface* cpu, SearchComparison searchComparison, u32 searchAddress, SearchResults searchResults, QByteArray searchValue)
+{
+	const bool isNotOperator = searchComparison == SearchComparison::NotEquals || searchComparison == SearchComparison::NotChanged;
+	switch (searchComparison)
+	{
+		case SearchComparison::Equals:
+		case SearchComparison::NotEquals:
+		{
+			return compareByteArrayAtAddress(cpu, searchComparison, searchAddress, searchValue);
+			break;
+		}
+		case SearchComparison::Changed:
+		case SearchComparison::NotChanged:
+		{
+			QByteArray priorValue = searchResults.value(searchAddress).getArrayValue();
+			return compareByteArrayAtAddress(cpu, isNotOperator ? SearchComparison::NotEquals : SearchComparison::Equals, searchAddress, priorValue);
+			break;
+		}
+		default:
+		{
+			Console.Error("Debugger: Unknown search comparison when doing memory search");
+			return false;
+		}
+	}
+	// Default to no match found unless the comparison is a NotEquals
+	return isNotOperator;
+}
+
+//static SearchArrayResults searchWorkerByteArray(DebugInterface* cpu, SearchComparison searchComparison, SearchArrayResults searchResults, u32 start, u32 end, QByteArray searchValue) static SearchArrayResults searchWorkerByteArray(DebugInterface* cpu, SearchComparison searchComparison, SearchArrayResults searchResults, u32 start, u32 end, QByteArray searchValue)
+static SearchResults searchWorkerByteArray(DebugInterface* cpu, SearchType searchType, SearchComparison searchComparison, SearchResults searchResults, u32 start, u32 end, QByteArray searchValue)
 {
 	std::vector<u32> hitAddresses;
-	const bool isSearchingRange = searchAddresses.size() <= 0;
+	SearchResults newResults;
+	const bool isSearchingRange = searchResults.size() <= 0;
 	if (isSearchingRange)
 	{
 		for (u32 addr = start; addr < end; addr += 1)
 		{
-			if (compareByteArrayAtAddress(cpu, searchComparison, addr, value))
+			if (!cpu->isValidAddress(addr))
+				continue;
+			if (handleArraySearchComparison(cpu, searchComparison, addr, searchResults, searchValue))
 			{
 				hitAddresses.emplace_back(addr);
-				addr += value.length() - 1;
+				// (TODO) we need to get the searched array val ... ... damn
+				//newResults.insert({addr, })
+				addr += searchValue.length() - 1;
 			}
 		}
 	}
 	else
 	{
-		for (u32 addr : searchAddresses)
+		for (CpuWidget::SearchResult searchResult : searchResults)
 		{
-			if (compareByteArrayAtAddress(cpu, searchComparison, addr, value))
+			const u32 addr = searchResult.getAddress();
+			if (!cpu->isValidAddress(addr))
+				continue;
+			if (handleArraySearchComparison(cpu, searchComparison, addr, searchResults, searchValue))
 			{
 				hitAddresses.emplace_back(addr);
 			}
 		}
 	}
-	return hitAddresses;
+	//return hitAddresses;
+	return newResults;
 }
 
-std::vector<u32> startWorker(DebugInterface* cpu, const SearchType type, const SearchComparison searchComparison, std::vector<u32> searchAddresses, u32 start, u32 end, QString value, int base)
+SearchResults startWorker(DebugInterface* cpu, const SearchType type, const SearchComparison comparison, SearchResults searchResults, u32 start, u32 end, QString value, int base)
 {
+	CpuWidget::SearchResult test = searchResults.isEmpty() ? CpuWidget::SearchResult() : searchResults.first();
+	u32 testVal = test.getIntegerValue();
 	const bool isSigned = value.startsWith("-");
 	switch (type)
 	{
 		case SearchType::ByteType:
-			return isSigned ? searchWorker<s8>(cpu, searchAddresses, searchComparison, start, end, value.toShort(nullptr, base)) : searchWorker<u8>(cpu, searchAddresses, searchComparison, start, end, value.toUShort(nullptr, base));
+			return isSigned ? searchWorker<s8>(cpu, searchResults, type, comparison, start, end, value.toShort(nullptr, base)) : searchWorker<u8>(cpu, searchResults, type, comparison, start, end, value.toUShort(nullptr, base));
 		case SearchType::Int16Type:
-			return isSigned ? searchWorker<s16>(cpu, searchAddresses, searchComparison, start, end, value.toShort(nullptr, base)) : searchWorker<u16>(cpu, searchAddresses, searchComparison, start, end, value.toUShort(nullptr, base));
+			return isSigned ? searchWorker<s16>(cpu, searchResults, type, comparison, start, end, value.toShort(nullptr, base)) : searchWorker<u16>(cpu, searchResults, type, comparison, start, end, value.toUShort(nullptr, base));
 		case SearchType::Int32Type:
-			return isSigned ? searchWorker<s32>(cpu, searchAddresses, searchComparison, start, end, value.toInt(nullptr, base)) : searchWorker<u32>(cpu, searchAddresses, searchComparison, start, end, value.toUInt(nullptr, base));
+			return isSigned ? searchWorker<s32>(cpu, searchResults, type, comparison, start, end, value.toInt(nullptr, base)) : searchWorker<u32>(cpu, searchResults, type, comparison, start, end, value.toUInt(nullptr, base));
 		case SearchType::Int64Type:
-			return isSigned ? searchWorker<s64>(cpu, searchAddresses, searchComparison, start, end, value.toLong(nullptr, base)) : searchWorker<s64>(cpu, searchAddresses, searchComparison, start, end, value.toULongLong(nullptr, base));
+			return isSigned ? searchWorker<s64>(cpu, searchResults, type, comparison, start, end, value.toLong(nullptr, base)) : searchWorker<s64>(cpu, searchResults, type, comparison, start, end, value.toULongLong(nullptr, base));
 		case SearchType::FloatType:
-			return searchWorker<float>(cpu, searchAddresses, searchComparison, start, end, value.toFloat());
+			return searchWorker<float>(cpu, searchResults, type, comparison, start, end, value.toFloat());
 		case SearchType::DoubleType:
-			return searchWorker<double>(cpu, searchAddresses, searchComparison, start, end, value.toDouble());
+			return searchWorker<double>(cpu, searchResults, type, comparison, start, end, value.toDouble());
 		case SearchType::StringType:
-			return searchWorkerByteArray(cpu, searchComparison, searchAddresses, start, end, value.toUtf8());
+			return searchWorkerByteArray(cpu, type, comparison, searchResults, start, end, value.toUtf8());
 		case SearchType::ArrayType:
-			return searchWorkerByteArray(cpu, searchComparison, searchAddresses, start, end, QByteArray::fromHex(value.toUtf8()));
+			return searchWorkerByteArray(cpu, type, comparison, searchResults, start, end, QByteArray::fromHex(value.toUtf8()));
 		default:
 			Console.Error("Debugger: Unknown type when doing memory search!");
 			break;
@@ -338,9 +455,9 @@ std::vector<u32> startWorker(DebugInterface* cpu, const SearchType type, const S
 	return {};
 }
 
-void MemorySearchWidget::onSearchButtonClicked()
+void CpuWidget::onSearchButtonClicked()
 {
-	if (!m_cpu->isAlive())
+	if (!m_cpu.isAlive())
 		return;
 
 	const SearchType searchType = static_cast<SearchType>(m_ui.cmbSearchType->currentIndex());
@@ -437,28 +554,90 @@ void MemorySearchWidget::onSearchButtonClicked()
 			return;
 	}
 
-	QFutureWatcher<std::vector<u32>>* workerWatcher = new QFutureWatcher<std::vector<u32>>;
-
-	connect(workerWatcher, &QFutureWatcher<std::vector<u32>>::finished, [this, workerWatcher] {
+	QFutureWatcher<SearchResults>* workerWatcher = new QFutureWatcher<SearchResults>;
+	const bool isArrayBasedType = searchType == SearchType::ArrayType || searchType == SearchType::StringType;
+	auto onSearchFinished = [this, workerWatcher, isArrayBasedType] {
 		m_ui.btnSearch->setDisabled(false);
 
 		m_ui.listSearchResults->clear();
 		const auto& results = workerWatcher->future().result();
 
-		m_searchResults = results;
+		//if (isArrayBasedType)
+		//	m_arraySearchResultsMap = results;
+		//else
+		//	m_searchResultsMap = results;
+		//m_searchResults = results;
+		// eventually:
+		m_searchResultsMap = results;
 		loadSearchResults();
 		m_ui.btnFilterSearch->setDisabled(m_ui.listSearchResults->count() == 0);
-	});
+	};
+	connect(workerWatcher, &QFutureWatcher<std::vector<u32>>::finished, onSearchFinished);
 
 	m_ui.btnSearch->setDisabled(true);
 	std::vector<u32> addresses;
+	QMap<u32, SearchResult> searchResultsMap;
 	if (isFilterSearch)
 	{
-		addresses = m_searchResults;
+		//addresses = m_searchResults;
+		searchResultsMap = m_searchResultsMap;
 	}
-	QFuture<std::vector<u32>> workerFuture =
-		QtConcurrent::run(startWorker, m_cpu, searchType, searchComparison, addresses, searchStart, searchEnd, searchValue, searchHex ? 16 : 10);
+
+	//QFutureWatcher<SearchResults>* workerWatcher = new QFutureWatcher<SearchResults>;
+	const QFuture<SearchResults> workerFuture = QtConcurrent::run(startWorker, &m_cpu, searchType, searchComparison, m_searchResultsMap, searchStart, searchEnd, searchValue, searchHex ? 16 : 10);
 	workerWatcher->setFuture(workerFuture);
+	connect(workerWatcher, &QFutureWatcher<SearchResults>::finished, onSearchFinished);
+
+	//if (isArrayBasedType)
+	//{
+	//	QFutureWatcher<SearchResults>* workerWatcher = new QFutureWatcher<SearchResults>;
+	//	const QFuture<SearchResults> workerFuture = isArrayBasedType ? QtConcurrent::run(startWorker, &m_cpu, searchType, searchComparison, m_searchResultsMap, searchStart, searchEnd, searchValue, searchHex ? 16 : 10);
+	//	workerWatcher->setFuture(workerFuture);
+	//	connect(workerWatcher, &QFutureWatcher<SearchResults>::finished, onSearchFinished);
+	//}
+	//else
+	//{
+	//	QFutureWatcher<SearchArrayResults>* workerWatcher = new QFutureWatcher<SearchArrayResults>;
+	//	const QFuture<SearchArrayResults> workerFuture = QtConcurrent::run(startArraySearchWorker, &m_cpu, searchType, searchComparison, m_arraySearchResultsMap, searchStart, searchEnd, searchValue, searchHex ? 16 : 10);
+	//	workerWatcher->setFuture(workerFuture);
+	//	connect(workerWatcher, &QFutureWatcher<SearchArrayResults>::finished, onSearchFinished);
+	//}
+}
+
+void CpuWidget::onSearchResultsListScroll(u32 value)
+{
+	bool hasResultsToLoad = static_cast<size_t>(m_ui.listSearchResults->count()) < m_searchResultsMap.size();
+	// bool hasResultsToLoad = static_cast<size_t>(m_ui.listSearchResults->count()) < m_searchResultsMap.size();
+	bool scrolledSufficiently = value > (m_ui.listSearchResults->verticalScrollBar()->maximum() * 0.95);
+
+	if (!m_resultsLoadTimer.isActive() && hasResultsToLoad && scrolledSufficiently)
+	{
+		// Load results once timer ends, allowing us to debounce repeated requests and only do one load.
+		m_resultsLoadTimer.start();
+	}
+}
+
+void CpuWidget::loadSearchResults()
+{
+	const u32 numLoaded = m_ui.listSearchResults->count();
+	const u32 amountLeftToLoad = m_searchResultsMap.size() - numLoaded;
+	// const u32 amountLeftToLoad = m_searchResultsMap.size() - numLoaded;
+	if (amountLeftToLoad < 1)
+		return;
+
+	const bool isFirstLoad = numLoaded == 0;
+	const u32 maxLoadAmount = isFirstLoad ? m_initialResultsLoadLimit : m_numResultsAddedPerLoad;
+	const u32 numToLoad = amountLeftToLoad > maxLoadAmount ? maxLoadAmount : amountLeftToLoad;
+
+	const auto addresses = m_searchResultsMap.keys();
+	for (u32 i = 0; i < numToLoad; i++)
+	{
+		u32 address = addresses.at(numLoaded + i);
+		// u32 address = m_searchResultsMap.at(numLoaded + i);
+		QListWidgetItem* item = new QListWidgetItem(QtUtils::FilledQStringFromValue(address, 16));
+		item->setData(Qt::UserRole, address);
+		m_ui.listSearchResults->addItem(item);
+	}
 }
 
 void MemorySearchWidget::onSearchResultsListScroll(u32 value)
@@ -471,6 +650,20 @@ void MemorySearchWidget::onSearchResultsListScroll(u32 value)
 		// Load results once timer ends, allowing us to debounce repeated requests and only do one load.
 		m_resultsLoadTimer.start();
 	}
+}
+
+void CpuWidget::onSearchTypeChanged(int newIndex)
+{
+	// Clear existing search results when the comparison type changes
+	//m_searchResultsMap.first().type
+	if (m_searchResultsMap.size() > 0 && (int)(m_searchResultsMap.first().getType()) != newIndex)
+	{
+		//m_searchResults.clear(); // remove later
+		m_searchResultsMap.clear();
+		m_ui.btnSearch->setDisabled(false);
+		m_ui.btnFilterSearch->setDisabled(true);
+	}
+	// ToDo: Do same for array
 }
 
 void MemorySearchWidget::loadSearchResults()
