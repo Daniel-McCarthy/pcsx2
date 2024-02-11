@@ -20,6 +20,7 @@
 #include <QtWidgets/QTableWidget>
 #include <QtCore/QSortFilterProxyModel>
 #include <QtCore/QTimer>
+#include <QtCore/QMap>
 
 #include <vector>
 
@@ -45,6 +46,20 @@ public:
 		ArrayType
 	};
 
+	//struct SearchResult
+	//{
+	//	u32 address;
+	//	u32 value;
+	//	SearchType type;
+	//};
+
+	struct ArraySearchResult
+	{
+		u32 address;
+		QByteArray value;
+		SearchType type;
+	};
+
 	// Note: The order of these enum values must reflect the order in thee Search Comparison combobox.
 	enum class SearchComparison
 	{
@@ -53,7 +68,34 @@ public:
 		GreaterThan,
 		GreaterThanOrEqual,
 		LessThan,
-		LessThanOrEqual
+		LessThanOrEqual,
+		Increased,
+		IncreasedBy,
+		Decreased,
+		DecreasedBy,
+		Changed,
+		NotChanged
+	};
+
+	class SearchResult
+	{
+	private:
+		u32 address;
+		QVariant value;
+		SearchType type;
+
+	public:
+		SearchResult() {}
+		SearchResult(u32 address, const QVariant& value, SearchType type)
+			: address(address), value(value), type(type)
+		{
+		}
+		bool isIntegerValue() const { return !isArrayValue(); }
+		bool isArrayValue() const { return type == SearchType::ArrayType || type == SearchType::StringType; }
+		u32 getAddress() const { return address; }
+		SearchType getType() const { return type; }
+		u32 getIntegerValue() const { return isIntegerValue() ? value.toUInt() : 0; }
+		QByteArray getArrayValue() const { return isArrayValue() ? value.toByteArray() : QByteArray(); }
 	};
 
 public slots:
@@ -113,6 +155,7 @@ public slots:
 
 	void onSearchButtonClicked();
 	void onSearchResultsListScroll(u32 value);
+	void onSearchTypeChanged(int newIndex);
 	void loadSearchResults();
 	void contextSearchResultGoToDisassembly();
 	void contextRemoveSearchResult();
@@ -124,7 +167,9 @@ public slots:
 
 private:
 	std::vector<QTableWidget*> m_registerTableViews;
-	std::vector<u32> m_searchResults;
+	//std::vector<u32> m_searchResults;
+	QMap<u32, SearchResult> m_searchResultsMap;
+	//QMap<u32, ArraySearchResult> m_arraySearchResultsMap;
 
 	QMenu* m_stacklistContextMenu = 0;
 	QMenu* m_funclistContextMenu = 0;
