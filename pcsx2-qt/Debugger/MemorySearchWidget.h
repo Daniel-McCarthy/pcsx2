@@ -9,6 +9,7 @@
 
 #include <QtWidgets/QWidget>
 #include <QtCore/QTimer>
+#include <QtCore/QMap>
 
 class MemorySearchWidget final : public QWidget
 {
@@ -39,12 +40,79 @@ public:
 		GreaterThan,
 		GreaterThanOrEqual,
 		LessThan,
-		LessThanOrEqual
+		LessThanOrEqual,
+		Increased,
+		IncreasedBy,
+		Decreased,
+		DecreasedBy,
+		Changed,
+		ChangedBy,
+		NotChanged,
+		Invalid
+	};
+
+	class SearchComparisonLabelMap
+	{
+	public:
+		SearchComparisonLabelMap()
+		{
+			insert(SearchComparison::Equals, tr("Equals"));
+			insert(SearchComparison::NotEquals, tr("Not Equals"));
+			insert(SearchComparison::GreaterThan, tr("Greater Than"));
+			insert(SearchComparison::GreaterThanOrEqual, tr("Greater Than Or Equal"));
+			insert(SearchComparison::LessThan, tr("Less Than"));
+			insert(SearchComparison::LessThanOrEqual, tr("Less Than Or Equal"));
+			insert(SearchComparison::Increased, tr("Increased"));
+			insert(SearchComparison::IncreasedBy, tr("Increased By"));
+			insert(SearchComparison::Decreased, tr("Decreased"));
+			insert(SearchComparison::DecreasedBy, tr("Decreased By"));
+			insert(SearchComparison::Changed, tr("Changed"));
+			insert(SearchComparison::ChangedBy, tr("Changed By"));
+			insert(SearchComparison::NotChanged, tr("Not Changed"));
+			insert(SearchComparison::Invalid, "");
+		}
+		SearchComparison labelToEnum(QString comparisonLabel)
+		{
+			return labelToEnumMap.value(comparisonLabel, SearchComparison::Invalid);
+		}
+		QString enumToLabel(SearchComparison comparison) {
+			return enumToLabelMap.value(comparison, "");
+		}
+	private:
+		QMap<SearchComparison, QString> enumToLabelMap;
+		QMap<QString, SearchComparison> labelToEnumMap;
+		void insert(SearchComparison comparison, QString comparisonLabel)
+		{
+			enumToLabelMap.insert(comparison, comparisonLabel);
+			labelToEnumMap.insert(comparisonLabel, comparison);
+		};
+	};
+
+	class SearchResult
+	{
+	private:
+		u32 address;
+		QVariant value;
+		SearchType type;
+
+	public:
+		SearchResult() {}
+		SearchResult(u32 address, const QVariant& value, SearchType type)
+			: address(address), value(value), type(type)
+		{
+		}
+		bool isIntegerValue() const { return !isArrayValue(); }
+		bool isArrayValue() const { return type == SearchType::ArrayType || type == SearchType::StringType; }
+		u32 getAddress() const { return address; }
+		SearchType getType() const { return type; }
+		u32 getIntegerValue() const { return isIntegerValue() ? value.toUInt() : 0; }
+		QByteArray getArrayValue() const { return isArrayValue() ? value.toByteArray() : QByteArray(); }
 	};
 
 public slots:
 	void onSearchButtonClicked();
 	void onSearchResultsListScroll(u32 value);
+	void onSearchTypeChanged(int newIndex);
 	void loadSearchResults();
 	void contextSearchResultGoToDisassembly();
 	void contextRemoveSearchResult();
@@ -58,13 +126,17 @@ signals:
 	void switchToMemoryViewTab();
 
 private:
-    std::vector<u32> m_searchResults;
+	QMap<u32, SearchResult> m_searchResultsMap;
+	SearchComparisonLabelMap m_searchComparisonLabelMap;
+	Ui::MemorySearchWidget m_ui;
+	DebugInterface* m_cpu;
+	QTimer m_resultsLoadTimer;
 
-    Ui::MemorySearchWidget m_ui;
-
-    DebugInterface* m_cpu;
-    QTimer m_resultsLoadTimer;
-
-    u32 m_initialResultsLoadLimit = 20000;
+	u32 m_initialResultsLoadLimit = 20000;
 	u32 m_numResultsAddedPerLoad = 10000;
+
+	void updateSearchComparisonSelections();
+	std::vector<SearchComparison> getValidSearchComparisonsForState(SearchType type, QMap<u32, MemorySearchWidget::SearchResult> existingResults);
+	SearchType getCurrentSearchType();
+	SearchComparison getCurrentSearchComparison();
 };
