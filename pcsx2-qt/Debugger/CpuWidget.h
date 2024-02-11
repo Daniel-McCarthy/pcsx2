@@ -34,9 +34,6 @@ public:
 	CpuWidget(QWidget* parent, DebugInterface& cpu);
 	~CpuWidget();
 
-
-	// Note: The order of these enum values must reflect the order in thee Search Comparison combobox.
-
 public slots:
 	void paintEvent(QPaintEvent* event);
 
@@ -94,7 +91,6 @@ public slots:
 		m_ui.tabLocalVariables->update();
 		m_ui.tabParameterVariables->update();
 	}
-
 
 	void saveBreakpointsToDebuggerSettings();
 	void saveSavedAddressesToDebuggerSettings();
