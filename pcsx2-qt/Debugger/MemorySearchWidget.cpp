@@ -493,7 +493,7 @@ void MemorySearchWidget::onSearchButtonClicked()
 	const bool isVariableSize = searchType == SearchType::ArrayType || searchType == SearchType::StringType;
 	if (isVariableSize && !isFilterSearch && searchComparison == SearchComparison::NotEquals)
 	{
-		QMessageBox::critical(this, tr("Debugger"), tr("Search types Array and String can use the Not Equals search comparison type with new searches."));
+		QMessageBox::critical(this, tr("Debugger"), tr("Search types Array and String can only use the Not Equals search comparison type with new searches."));
 		return;
 	}
 
