@@ -574,8 +574,7 @@ void MemorySearchWidget::onSearchButtonClicked()
 	connect(workerWatcher, &QFutureWatcher<std::vector<u32>>::finished, onSearchFinished);
 
 	m_ui.btnSearch->setDisabled(true);
-	std::vector<u32> addresses;
-	QMap<u32, SearchResult> searchResultsMap;
+	SearchResults searchResultsMap;
 	if (isFilterSearch)
 	{
 		//addresses = m_searchResults;
@@ -583,7 +582,7 @@ void MemorySearchWidget::onSearchButtonClicked()
 	}
 
 	//QFutureWatcher<SearchResults>* workerWatcher = new QFutureWatcher<SearchResults>;
-	const QFuture<SearchResults> workerFuture = QtConcurrent::run(startWorker, m_cpu, searchType, searchComparison, m_searchResultsMap, searchStart, searchEnd, searchValue, searchHex ? 16 : 10);
+	const QFuture<SearchResults> workerFuture = QtConcurrent::run(startWorker, m_cpu, searchType, searchComparison, searchResultsMap, searchStart, searchEnd, searchValue, searchHex ? 16 : 10);
 	workerWatcher->setFuture(workerFuture);
 	connect(workerWatcher, &QFutureWatcher<SearchResults>::finished, onSearchFinished);
 

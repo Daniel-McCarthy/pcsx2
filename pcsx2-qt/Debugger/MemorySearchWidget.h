@@ -89,12 +89,12 @@ signals:
 private:
     std::vector<u32> m_searchResults;
 	QMap<u32, SearchResult> m_searchResultsMap;
-
     Ui::MemorySearchWidget m_ui;
-
     DebugInterface* m_cpu;
     QTimer m_resultsLoadTimer;
 
     u32 m_initialResultsLoadLimit = 20000;
 	u32 m_numResultsAddedPerLoad = 10000;
+
+	//bool isValidSearch(SearchComparison searchComparison, SearchType searchType, QMap<u32, MemorySearchWidget::SearchResult> results, bool isFilterSearch);
 };
