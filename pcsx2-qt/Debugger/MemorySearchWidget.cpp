@@ -427,7 +427,6 @@ static SearchResults searchWorkerByteArray(DebugInterface* cpu, SearchType searc
 
 SearchResults startWorker(DebugInterface* cpu, const SearchType type, const SearchComparison comparison, SearchResults searchResults, u32 start, u32 end, QString value, int base)
 {
-	MemorySearchWidget::SearchResult test = searchResults.isEmpty() ? MemorySearchWidget::SearchResult() : searchResults.first();
 	u32 testVal = test.getIntegerValue();
 	const bool isSigned = value.startsWith("-");
 	switch (type)
@@ -640,18 +639,6 @@ void MemorySearchWidget::loadSearchResults()
 	}
 }
 
-void MemorySearchWidget::onSearchResultsListScroll(u32 value)
-{
-	bool hasResultsToLoad = static_cast<size_t>(m_ui.listSearchResults->count()) < m_searchResults.size();
-	bool scrolledSufficiently = value > (m_ui.listSearchResults->verticalScrollBar()->maximum() * 0.95);
-
-	if (!m_resultsLoadTimer.isActive() && hasResultsToLoad && scrolledSufficiently)
-	{
-		// Load results once timer ends, allowing us to debounce repeated requests and only do one load.
-		m_resultsLoadTimer.start();
-	}
-}
-
 void MemorySearchWidget::onSearchTypeChanged(int newIndex)
 {
 	// Clear existing search results when the comparison type changes
@@ -664,24 +651,4 @@ void MemorySearchWidget::onSearchTypeChanged(int newIndex)
 		m_ui.btnFilterSearch->setDisabled(true);
 	}
 	// ToDo: Do same for array
-}
-
-void MemorySearchWidget::loadSearchResults()
-{
-	const u32 numLoaded = m_ui.listSearchResults->count();
-	const u32 amountLeftToLoad = m_searchResults.size() - numLoaded;
-	if (amountLeftToLoad < 1)
-		return;
-
-	const bool isFirstLoad = numLoaded == 0;
-	const u32 maxLoadAmount = isFirstLoad ? m_initialResultsLoadLimit : m_numResultsAddedPerLoad;
-	const u32 numToLoad = amountLeftToLoad > maxLoadAmount ? maxLoadAmount : amountLeftToLoad;
-
-	for (u32 i = 0; i < numToLoad; i++)
-	{
-		u32 address = m_searchResults.at(numLoaded + i);
-		QListWidgetItem* item = new QListWidgetItem(QtUtils::FilledQStringFromValue(address, 16));
-		item->setData(Qt::UserRole, address);
-		m_ui.listSearchResults->addItem(item);
-	}
 }
