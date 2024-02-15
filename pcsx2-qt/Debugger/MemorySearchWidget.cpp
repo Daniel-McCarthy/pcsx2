@@ -427,7 +427,6 @@ static SearchResults searchWorkerByteArray(DebugInterface* cpu, SearchType searc
 
 SearchResults startWorker(DebugInterface* cpu, const SearchType type, const SearchComparison comparison, SearchResults searchResults, u32 start, u32 end, QString value, int base)
 {
-	u32 testVal = test.getIntegerValue();
 	const bool isSigned = value.startsWith("-");
 	switch (type)
 	{
