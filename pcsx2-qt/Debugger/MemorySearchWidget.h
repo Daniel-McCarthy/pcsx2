@@ -46,7 +46,46 @@ public:
 		Decreased,
 		DecreasedBy,
 		Changed,
-		NotChanged
+		ChangedBy,
+		NotChanged,
+		Invalid
+	};
+
+	class SearchComparisonLabelMap
+	{
+	public:
+		SearchComparisonLabelMap()
+		{
+			insert(SearchComparison::Equals, tr("Equals"));
+			insert(SearchComparison::NotEquals, tr("Not Equals"));
+			insert(SearchComparison::GreaterThan, tr("Greater Than"));
+			insert(SearchComparison::GreaterThanOrEqual, tr("Greater Than Or Equal"));
+			insert(SearchComparison::LessThan, tr("Less Than"));
+			insert(SearchComparison::LessThanOrEqual, tr("Less Than Or Equal"));
+			insert(SearchComparison::Increased, tr("Increased"));
+			insert(SearchComparison::IncreasedBy, tr("Increased By"));
+			insert(SearchComparison::Decreased, tr("Decreased"));
+			insert(SearchComparison::DecreasedBy, tr("Decreased By"));
+			insert(SearchComparison::Changed, tr("Changed"));
+			insert(SearchComparison::ChangedBy, tr("Changed By"));
+			insert(SearchComparison::NotChanged, tr("Not Changed"));
+			insert(SearchComparison::Invalid, "");
+		}
+		SearchComparison labelToEnum(QString comparisonLabel)
+		{
+			return labelToEnumMap.value(comparisonLabel, SearchComparison::Invalid);
+		}
+		QString enumToLabel(SearchComparison comparison) {
+			return enumToLabelMap.value(comparison, "");
+		}
+	private:
+		QMap<SearchComparison, QString> enumToLabelMap;
+		QMap<QString, SearchComparison> labelToEnumMap;
+		void insert(SearchComparison comparison, QString comparisonLabel)
+		{
+			enumToLabelMap.insert(comparison, comparisonLabel);
+			labelToEnumMap.insert(comparisonLabel, comparison);
+		};
 	};
 
 	class SearchResult
@@ -87,14 +126,17 @@ signals:
 	void switchToMemoryViewTab();
 
 private:
-    std::vector<u32> m_searchResults;
 	QMap<u32, SearchResult> m_searchResultsMap;
-    Ui::MemorySearchWidget m_ui;
-    DebugInterface* m_cpu;
-    QTimer m_resultsLoadTimer;
+	SearchComparisonLabelMap m_searchComparisonLabelMap;
+	Ui::MemorySearchWidget m_ui;
+	DebugInterface* m_cpu;
+	QTimer m_resultsLoadTimer;
 
-    u32 m_initialResultsLoadLimit = 20000;
+	u32 m_initialResultsLoadLimit = 20000;
 	u32 m_numResultsAddedPerLoad = 10000;
 
-	//bool isValidSearch(SearchComparison searchComparison, SearchType searchType, QMap<u32, MemorySearchWidget::SearchResult> results, bool isFilterSearch);
+	void updateSearchComparisonSelections();
+	std::vector<SearchComparison> getValidSearchComparisonsForState(SearchType type, QMap<u32, MemorySearchWidget::SearchResult> existingResults);
+	SearchType getCurrentSearchType();
+	SearchComparison getCurrentSearchComparison();
 };
