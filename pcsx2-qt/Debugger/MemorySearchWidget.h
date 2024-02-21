@@ -101,12 +101,19 @@ public:
 			: address(address), value(value), type(type)
 		{
 		}
-		bool isIntegerValue() const { return !isArrayValue(); }
+		bool isIntegerValue() const { return type == SearchType::ByteType || type == SearchType::Int16Type || type == SearchType::Int32Type || type == SearchType::Int64Type; }
+		bool isFloatValue() const { return type == SearchType::FloatType; }
+		bool isDoubleValue() const { return type == SearchType::DoubleType; }
 		bool isArrayValue() const { return type == SearchType::ArrayType || type == SearchType::StringType; }
 		u32 getAddress() const { return address; }
 		SearchType getType() const { return type; }
-		u32 getIntegerValue() const { return isIntegerValue() ? value.toUInt() : 0; }
 		QByteArray getArrayValue() const { return isArrayValue() ? value.toByteArray() : QByteArray(); }
+
+		template<typename T>
+		T getValue() const
+		{
+			return value.value<T>();
+		}
 	};
 
 public slots:

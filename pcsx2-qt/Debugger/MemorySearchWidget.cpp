@@ -19,6 +19,7 @@
 
 using SearchComparison = MemorySearchWidget::SearchComparison;
 using SearchType = MemorySearchWidget::SearchType;
+using SearchResult = MemorySearchWidget::SearchResult;
 using SearchResults = QMap<u32, MemorySearchWidget::SearchResult>;
 
 using namespace QtUtils;
@@ -117,6 +118,20 @@ void MemorySearchWidget::onListSearchResultsContextMenu(QPoint pos)
 	contextMenu->popup(m_ui.listSearchResults->viewport()->mapToGlobal(pos));
 }
 
+template<typename T>
+T readValueAtAddress(DebugInterface* cpu, u32 addr);
+template<>
+float readValueAtAddress<float>(DebugInterface* cpu, u32 addr)
+{
+	return std::bit_cast<float>(cpu->read32(addr));
+}
+
+template<>
+double readValueAtAddress<double>(DebugInterface* cpu, u32 addr)
+{
+	return std::bit_cast<double>(cpu->read64(addr));
+}
+
 template <typename T>
 static T readValueAtAddress(DebugInterface* cpu, u32 addr)
 {
@@ -157,15 +172,13 @@ static bool memoryValueComparator(SearchComparison searchComparison, T searchVal
 			{
 				const T fTop = searchValue + 0.00001f;
 				const T fBottom = searchValue - 0.00001f;
-				const T memValue = std::bit_cast<float, u32>(readValue);
-				areValuesEqual = (fBottom < memValue && memValue < fTop);
+				areValuesEqual = (fBottom < readValue && readValue < fTop);
 			}
 			else if constexpr (std::is_same_v<T, double>)
 			{
 				const double dTop = searchValue + 0.00001f;
 				const double dBottom = searchValue - 0.00001f;
-				const double memValue = std::bit_cast<double, u64>(readValue);
-				areValuesEqual = (dBottom < memValue && memValue < dTop);
+				areValuesEqual = (dBottom < readValue && readValue < dTop);
 			}
 			else
 			{
@@ -188,18 +201,16 @@ static bool memoryValueComparator(SearchComparison searchComparison, T searchVal
 			{
 				const T fTop = searchValue + 0.00001f;
 				const T fBottom = searchValue - 0.00001f;
-				const T memValue = std::bit_cast<float, u32>(readValue);
-				const bool isGreater = memValue > fTop;
-				const bool isLesser = memValue < fBottom;
+				const bool isGreater = readValue > fTop;
+				const bool isLesser = readValue < fBottom;
 				return isGreaterOperator ? isGreater : isLesser;
 			}
 			else if (std::is_same_v<T, double>)
 			{
 				const double dTop = searchValue + 0.00001f;
 				const double dBottom = searchValue - 0.00001f;
-				const double memValue = std::bit_cast<double, u64>(readValue);
-				const bool isGreater = memValue > dTop;
-				const bool isLesser = memValue < dBottom;
+				const bool isGreater = readValue > dTop;
+				const bool isLesser = readValue < dBottom;
 				return isGreaterOperator ? isGreater : isLesser;
 			}
 
@@ -230,27 +241,27 @@ bool handleSearchComparison(SearchComparison searchComparison, u32 searchAddress
 		}
 		case SearchComparison::Increased:
 		{
-			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T priorValue = searchResults.value(searchAddress).getValue<T>();
 			return memoryValueComparator(SearchComparison::GreaterThan, priorValue, readValue);
 			break;
 		}
 		case SearchComparison::IncreasedBy:
 		{
 
-			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T priorValue = searchResults.value(searchAddress).getValue<T>();
 			const T expectedIncrease = searchValue + priorValue;
 			return memoryValueComparator(SearchComparison::Equals, readValue, expectedIncrease);
 			break;
 		}
 		case SearchComparison::Decreased:
 		{
-			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T priorValue = searchResults.value(searchAddress).getValue<T>();
 			return memoryValueComparator(SearchComparison::LessThan, priorValue, readValue);
 			break;
 		}
 		case SearchComparison::DecreasedBy:
 		{
-			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T priorValue = searchResults.value(searchAddress).getValue<T>();
 			const T expectedDecrease = priorValue - searchValue;
 			return memoryValueComparator(SearchComparison::Equals, readValue, expectedDecrease);
 			break;
@@ -258,14 +269,13 @@ bool handleSearchComparison(SearchComparison searchComparison, u32 searchAddress
 		case SearchComparison::Changed:
 		case SearchComparison::NotChanged:
 		{
-			MemorySearchWidget::SearchResult test = searchResults.value(0x80000);
-			T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T priorValue = searchResults.value(searchAddress).getValue<T>();
 			return memoryValueComparator(isNotOperator ? SearchComparison::Equals : SearchComparison::NotEquals, priorValue, readValue);
 			break;
 		}
 		case SearchComparison::ChangedBy:
 		{
-			const T priorValue = searchResults.value(searchAddress).getIntegerValue();
+			const T priorValue = searchResults.value(searchAddress).getValue<T>();
 			const T expectedIncrease = searchValue + priorValue;
 			const T expectedDecrease = priorValue - searchValue;
 			return memoryValueComparator(SearchComparison::Equals, readValue, expectedIncrease) || memoryValueComparator(SearchComparison::Equals, readValue, expectedDecrease);
