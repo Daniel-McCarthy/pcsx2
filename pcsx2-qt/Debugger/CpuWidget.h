@@ -74,6 +74,7 @@ public slots:
 	bool getDemangleFunctions() const { return m_demangleFunctions; }
 	void onModuleTreeContextMenu(QPoint pos);
 	void onModuleTreeDoubleClick(QTreeWidgetItem* item);
+	void refreshDebugger();
 	void reloadCPUWidgets()
 	{
 		if (!QtHost::IsOnUIThread())
@@ -95,12 +96,14 @@ public slots:
 	void saveBreakpointsToDebuggerSettings();
 	void saveSavedAddressesToDebuggerSettings();
 
+
 private:
 	std::vector<QTableWidget*> m_registerTableViews;
 
 	QMenu* m_stacklistContextMenu = 0;
 	QMenu* m_funclistContextMenu = 0;
 	QMenu* m_moduleTreeContextMenu = 0;
+	QTimer m_refreshDebuggerTimer;
 
 	Ui::CpuWidget m_ui;
 
