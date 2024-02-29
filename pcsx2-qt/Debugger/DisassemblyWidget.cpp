@@ -757,11 +757,20 @@ inline QString DisassemblyWidget::DisassemblyStringFromAddress(u32 address, QFon
 	QString lineString;
 	if (showOpcode)
 	{
-		lineString = QString("  %1 %2  %3 %4  %5 %6");
+		lineString = QString(" %1 %2 %3  %4 %5  %6 %7");
 	}
 	else
 	{
-		lineString = QString("  %1  %2 %3  %4 %5");
+		lineString = QString(" %1 %2  %3 %4  %5 %6");
+	}
+
+	if(isFunctionNoReturn)
+	{
+		lineString = lineString.arg("NR");
+	}
+	else
+	{
+		lineString = lineString.arg("  ");
 	}
 
 	if (addressSymbol.empty()) // The address wont have symbol text if it's the start of a function for example
@@ -772,7 +781,7 @@ inline QString DisassemblyWidget::DisassemblyStringFromAddress(u32 address, QFon
 		QFontMetrics metric(font);
 		QString symbolString = QString::fromStdString(addressSymbol);
 
-		lineString = lineString.arg(metric.elidedText(symbolString, Qt::ElideRight, (selected ? 32.0f : 7.5f) * font.pointSize()));
+		lineString = lineString.arg(metric.elidedText(symbolString, Qt::ElideRight, (selected ? 32 : 7) * font.pointSize()));
 	}
 
 	if (showOpcode)

@@ -69,6 +69,13 @@ public slots:
 	void onStackListContextMenu(QPoint pos);
 	void onStackListDoubleClick(const QModelIndex& index);
 
+	void updateFunctionList(bool whenEmpty = false);
+	void onFuncListContextMenu(QPoint pos);
+	void onFuncListDoubleClick(QListWidgetItem* item);
+	bool getDemangleFunctions() const { return m_demangleFunctions; }
+	void onModuleTreeContextMenu(QPoint pos);
+	void onModuleTreeDoubleClick(QTreeWidgetItem* item);
+	void refreshDebugger();
 	void reloadCPUWidgets()
 	{
 		if (!QtHost::IsOnUIThread())
@@ -100,6 +107,7 @@ private:
 	QMenu* m_stacklistContextMenu = 0;
 	QMenu* m_funclistContextMenu = 0;
 	QMenu* m_moduleTreeContextMenu = 0;
+	QTimer m_refreshDebuggerTimer;
 
 	Ui::CpuWidget m_ui;
 
