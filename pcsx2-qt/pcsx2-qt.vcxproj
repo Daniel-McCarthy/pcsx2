@@ -108,6 +108,7 @@
     <ClCompile Include="Debugger\RegisterWidget.cpp" />
     <ClCompile Include="Debugger\BreakpointDialog.cpp" />
     <ClCompile Include="Debugger\DebuggerSettingsManager.cpp" />
+    <ClCompile Include="Debugger\SettingsDialog.cpp" />
     <ClCompile Include="Debugger\Models\BreakpointModel.cpp" />
     <ClCompile Include="Debugger\Models\ThreadModel.cpp" />
     <ClCompile Include="Debugger\Models\StackModel.cpp" />
@@ -199,6 +200,7 @@
     <QtMoc Include="Debugger\MemoryViewWidget.h" />
     <QtMoc Include="Debugger\RegisterWidget.h" />
     <QtMoc Include="Debugger\BreakpointDialog.h" />
+    <QtMoc Include="Debugger\SettingsDialog.h" />
     <ClInclude Include="Debugger\DebuggerSettingsManager.h" />
     <QtMoc Include="Debugger\Models\BreakpointModel.h" />
     <QtMoc Include="Debugger\Models\ThreadModel.h" />
@@ -257,6 +259,7 @@
     <ClCompile Include="$(IntDir)Debugger\moc_MemorySearchWidget.cpp" />
     <ClCompile Include="$(IntDir)Debugger\moc_MemoryViewWidget.cpp" />
     <ClCompile Include="$(IntDir)Debugger\moc_BreakpointDialog.cpp" />
+    <ClCompile Include="$(IntDir)Debugger\moc_SettingsDialog.cpp" />
     <ClCompile Include="$(IntDir)Debugger\Models\moc_BreakpointModel.cpp" />
     <ClCompile Include="$(IntDir)Debugger\Models\moc_ThreadModel.cpp" />
     <ClCompile Include="$(IntDir)Debugger\Models\moc_StackModel.cpp" />
@@ -390,6 +393,9 @@
       <FileType>Document</FileType>
     </QtUi>
     <QtUi Include="Debugger\BreakpointDialog.ui">
+      <FileType>Document</FileType>
+    </QtUi>
+    <QtUi Include="Debugger\SettingsDialog.ui">
       <FileType>Document</FileType>
     </QtUi>
   </ItemGroup>

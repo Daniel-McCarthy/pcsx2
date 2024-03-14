@@ -42,6 +42,7 @@ CpuWidget::CpuWidget(QWidget* parent, DebugInterface& cpu)
 	, m_savedAddressesModel(cpu)
 {
 	m_ui.setupUi(this);
+	this->setStyleSheet("* { font-size: 10pt; }");
 
 	connect(g_emu_thread, &EmuThread::onVMPaused, this, &CpuWidget::onVMPaused);
 	connect(g_emu_thread, &EmuThread::onGameChanged, [this](const QString& title) {

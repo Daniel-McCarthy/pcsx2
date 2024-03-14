@@ -8,11 +8,13 @@
 #include "VMManager.h"
 #include "QtHost.h"
 #include "MainWindow.h"
+#include "SettingsDialog.h"
 
 DebuggerWindow::DebuggerWindow(QWidget* parent)
 	: QMainWindow(parent)
 {
 	m_ui.setupUi(this);
+	//this->setStyleSheet("* { font-size: 12pt; }");
 
 // Easiest way to handle cross platform monospace fonts
 // There are issues related to TabWidget -> Children font inheritance otherwise
@@ -28,6 +30,42 @@ DebuggerWindow::DebuggerWindow(QWidget* parent)
 	connect(m_ui.actionStepInto, &QAction::triggered, this, &DebuggerWindow::onStepInto);
 	connect(m_ui.actionStepOver, &QAction::triggered, this, &DebuggerWindow::onStepOver);
 	connect(m_ui.actionStepOut, &QAction::triggered, this, &DebuggerWindow::onStepOut);
+	//SettingsWidget* panel = new SettingsWidget(this);
+	//panel->hide(); // Initially hidden
+
+	//QPropertyAnimation* animation = new QPropertyAnimation(panel, "geometry");
+	//animation->setDuration(500); // Duration in milliseconds
+	//QRect startRect = QRect(10, 10, 0, 0); // Start from the button position
+	//QRect endRect = QRect(10, 10, 200, 200); // End size and position
+
+	//connect(m_ui.actionOpenSettings, &QAction::triggered, [this, panel, animation, startRect, endRect]() {
+	connect(m_ui.actionOpenSettings, &QAction::triggered, [this]() {
+		SettingsDialog* dlg = new SettingsDialog();
+		if (!dlg->isVisible())
+		{
+			dlg->show();
+		}
+		else
+		{
+			dlg->raise();
+			dlg->activateWindow();
+			dlg->setFocus();
+		}
+
+		//if (panel->isVisible())
+		//{
+		//	panel->hide();
+		//}
+		//else
+		//{
+		//	// Adjust startRect and endRect based on the actual desired location and size
+		//	animation->setStartValue(startRect);
+		//	animation->setEndValue(endRect);
+		//	panel->setGeometry(startRect); // Set initial geometry for the animation
+		//	panel->show();
+		//	animation->start();
+		//}
+	});
 	connect(m_ui.actionOnTop, &QAction::triggered, [this] { this->setWindowFlags(this->windowFlags() ^ Qt::WindowStaysOnTopHint); this->show(); });
 
 	connect(g_emu_thread, &EmuThread::onVMPaused, this, &DebuggerWindow::onVMStateChanged);

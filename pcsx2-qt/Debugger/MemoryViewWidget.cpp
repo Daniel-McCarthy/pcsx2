@@ -348,6 +348,7 @@ MemoryViewWidget::MemoryViewWidget(QWidget* parent)
 	, m_table(this)
 {
 	ui.setupUi(this);
+	this->setStyleSheet("* { font-size: 9pt; }");
 	this->setFocusPolicy(Qt::FocusPolicy::ClickFocus);
 	connect(this, &MemoryViewWidget::customContextMenuRequested, this, &MemoryViewWidget::customMenuRequested);
 }

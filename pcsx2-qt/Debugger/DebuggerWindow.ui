@@ -52,6 +52,7 @@
    <addaction name="actionStepOver"/>
    <addaction name="actionStepOut"/>
    <addaction name="actionOnTop"/>
+   <addaction name="actionOpenSettings"/>
   </widget>
   <action name="actionRun">
    <property name="icon">
@@ -106,6 +107,18 @@
    </property>
    <property name="toolTip">
     <string>Show this window on top</string>
+   </property>
+  </action>
+  <action name="actionOpenSettings">
+   <property name="icon">
+     <iconset resource="../resources/resources.qrc">
+      <normaloff>:/icons/white/svg/settings-3-line.svg</normaloff>:/icons/white/svg/settings-3-line.svg</iconset>
+    </property>
+   <property name="text">
+    <string>Settings</string>
+   </property>
+   <property name="toolTip">
+    <string>Opens the debugger settings window</string>
    </property>
   </action>
  </widget>

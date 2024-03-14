@@ -26,6 +26,7 @@ RegisterWidget::RegisterWidget(QWidget* parent)
 	this->setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
 
 	ui.setupUi(this);
+	this->setStyleSheet("* { font-size: 10pt; }");
 	ui.registerTabs->setDrawBase(false);
 
 	connect(this, &RegisterWidget::customContextMenuRequested, this, &RegisterWidget::customMenuRequested);

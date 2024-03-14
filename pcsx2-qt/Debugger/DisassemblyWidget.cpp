@@ -23,6 +23,7 @@ DisassemblyWidget::DisassemblyWidget(QWidget* parent)
 	: QWidget(parent)
 {
 	ui.setupUi(this);
+	this->setStyleSheet("* { font-size: 10pt; }");
 
 	connect(this, &DisassemblyWidget::customContextMenuRequested, this, &DisassemblyWidget::customMenuRequested);
 }
